@@ -1,5 +1,6 @@
 {{ config(
-        alias ='claims',
+        tags=['dunesql'],
+        alias = alias('claims'),
         post_hook='{{ expose_spells(\'["optimism"]\',
                                       "sector",
                                       "airdrop",
@@ -10,8 +11,12 @@
 
 {% set airdrop_claims_models = [
     ref('op_optimism_airdrop_1_claims')
-    , ref('velodrome_optimism_airdrop_claims')
+
 ] %}
+
+{#
+-- , ref('velodrome_optimism_airdrop_claims') model relies on dex_prices
+#}
 
 
 SELECT *

@@ -1,10 +1,11 @@
 {{ config(
-    alias = 'send',
-    partition_by = ['block_date'],
+    tags=['dunesql'],
+    alias = alias('send'),
+    partition_by = ['block_month'],
     materialized = 'incremental',
     file_format = 'delta',
     incremental_strategy = 'merge',
-    unique_key = ['block_time', 'tx_hash', 'user_address', 'trace_address', 'source_chain_id', 'destination_chain_id', 'currency_contract']
+    unique_key = ['block_time', 'tx_hash', 'user_address', 'trace_address', 'source_chain_id', 'destination_chain_id']
     )
 }}
 
@@ -13,7 +14,8 @@
 {% set native_token_contract = "0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270" %}
 
 WITH send_detail AS (
-    SELECT CAST(109 AS integer) AS source_chain_id,
+    SELECT ROW_NUMBER() OVER(PARTITION BY s.call_block_number,s.call_tx_hash ORDER BY s.call_trace_address ASC) AS call_send_index,
+        CAST(109 AS integer) AS source_chain_id,
         s.call_tx_hash as tx_hash,
         s.call_block_number as block_number,
         s._dstChainId AS destination_chain_id,
@@ -23,30 +25,30 @@ WITH send_detail AS (
         s._adapterParams AS adapter_params,
         s._refundAddress AS refund_address,
         s._zroPaymentAddress AS zro_payment_address,
-        t.from AS user_address,
+        t."from" AS user_address,
         t.to AS transaction_contract_address,
         CAST(t.value AS DOUBLE) AS transaction_value,
-        CASE WHEN len(_destination) >= 82
-            THEN '0x' || right(_destination, 40)
-            ELSE '' END AS local_contract_address, -- 
-        CASE WHEN len(_destination) >= 82
-            THEN substring(_destination, 1, len(_destination) - 40)
+        CASE WHEN bytearray_length(_destination) >= 40
+            THEN bytearray_reverse(bytearray_substring(bytearray_reverse(_destination), 1, 20))
+            ELSE 0x END AS local_contract_address,
+        CASE WHEN bytearray_length(_destination) >= 40
+            THEN bytearray_reverse(bytearray_substring(bytearray_reverse(_destination), 21))
             ELSE _destination END AS remote_contract_address
     FROM {{ source ('layerzero_polygon', 'Endpoint_call_send') }} s
     INNER JOIN {{ source('polygon','transactions') }} t on t.block_number = s.call_block_number
         AND t.hash = s.call_tx_hash
         {% if not is_incremental() %}
-        AND t.block_time >= '{{transaction_start_date}}'
+        AND t.block_time >= TIMESTAMP '{{transaction_start_date}}'
         {% endif %}
         {% if is_incremental() %}
-        AND t.block_time >= date_trunc("day", now() - interval '1 week')
+        AND t.block_time >= date_trunc('day', now() - interval '7' day)
         {% endif %}
     WHERE s.call_success
         {% if not is_incremental() %}
-        AND s.call_block_time >= '{{transaction_start_date}}'
+        AND s.call_block_time >= TIMESTAMP '{{transaction_start_date}}'
         {% endif %}
         {% if is_incremental() %}
-        AND s.call_block_time >= date_trunc("day", now() - interval '1 week')
+        AND s.call_block_time >= date_trunc('day', now() - interval '7' day)
         {% endif %}
 ),
 
@@ -70,19 +72,11 @@ destination_gas_detail AS (
         AND e.tx_hash = s.tx_hash
         AND e.trace_address = s.trace_address
         {% if not is_incremental() %}
-        AND e.block_time >= '{{transaction_start_date}}'
+        AND e.block_time >= TIMESTAMP '{{transaction_start_date}}'
         {% endif %}
         {% if is_incremental() %}
-        AND e.block_time >= date_trunc("day", now() - interval '1 week')
+        AND e.block_time >= date_trunc('day', now() - interval '7' day)
         {% endif %}
-),
-
-destination_trace_address_summary AS (
-    SELECT block_number,
-        tx_hash,
-        array_agg(trace_address[0]) AS endpoint_root_trace_address
-    FROM destination_gas_detail
-    GROUP BY 1, 2
 ),
 
 destination_gas_summary AS (
@@ -93,37 +87,10 @@ destination_gas_summary AS (
     GROUP BY 1, 2
 ),
 
-native_transfer_value_summary AS (
-    SELECT s.block_number,
-        s.tx_hash,
-        dg.endpoint_root_trace_address,
-        SUM(CAST(e.value as double)) AS amount_native_value
-    FROM send_summary s
-    INNER JOIN destination_trace_address_summary dg ON dg.block_number = s.block_number
-        AND dg.tx_hash = s.tx_hash
-    INNER JOIN {{ source('polygon', 'traces') }} e ON e.block_number = dg.block_number
-        AND e.tx_hash = dg.tx_hash
-        AND ARRAY_CONTAINS(dg.endpoint_root_trace_address, e.trace_address[0]) IS NOT TRUE
-        AND e.from = s.transaction_contract_address
-        AND e.call_type = 'call'
-        AND cast(e.value as double) > 0
-        AND cardinality(e.trace_address) > 0
-        {% if not is_incremental() %}
-        AND e.block_time >= '{{transaction_start_date}}'
-        {% endif %}
-        {% if is_incremental() %}
-        AND e.block_time >= date_trunc("day", now() - interval '1 week')
-        {% endif %}
-    GROUP BY 1, 2, 3
-),
-
 trans_detail AS (
     -- ERC20 transfer: Endpoint send value is equal to transaction value
     SELECT t.block_number,
         t.tx_hash,
-        t.user_address,
-        t.transaction_contract_address,
-        t.transaction_value,
         'erc20' AS transfer_type,
         t.currency_contract,
         t.amount_raw
@@ -139,35 +106,30 @@ trans_detail AS (
         INNER JOIN {{ source('erc20_polygon', 'evt_transfer') }} et on et.evt_block_number = s.block_number
             AND et.evt_tx_hash = s.tx_hash
             {% if not is_incremental() %}
-            AND et.evt_block_time >= '{{transaction_start_date}}'
+            AND et.evt_block_time >= TIMESTAMP '{{transaction_start_date}}'
             {% endif %}
             {% if is_incremental() %}
-            AND et.evt_block_time >= date_trunc("day", now() - interval '1 week')
+            AND et.evt_block_time >= date_trunc('day', now() - interval '7' day)
             {% endif %}
     ) t
     WHERE t.rn = 1
     
     UNION ALL
 
-    -- Native transfer: The transaction amount != endpoint gas amount + transfer amount
+    -- Native transfer: The transaction amount > endpoint gas amount
     SELECT s.block_number,
         s.tx_hash,
-        s.user_address,
-        s.transaction_contract_address,
-        s.transaction_value,
         'native' AS transfer_type,
-        '{{native_token_contract}}' AS currency_contract,
+        {{native_token_contract}} AS currency_contract,
         s.transaction_value - dgs.amount_destination_gas AS amount_raw -- Transfer amount of the transaction
     FROM send_summary s
     INNER JOIN destination_gas_summary dgs ON dgs.block_number = s.block_number
         AND dgs.tx_hash = s.tx_hash
         AND dgs.amount_destination_gas > 0
-    INNER JOIN native_transfer_value_summary nvs ON nvs.block_number = s.block_number
-        AND nvs.tx_hash = s.tx_hash
-        AND nvs.amount_native_value > 0
-    WHERE s.transaction_value = dgs.amount_destination_gas + nvs.amount_native_value
+    WHERE s.transaction_value > dgs.amount_destination_gas
 )
 
+-- Note: Ignored the amount of erc721
 SELECT 'polygon' AS blockchain,
     s.source_chain_id,
     cls.chain_name AS source_chain_name,
@@ -176,7 +138,8 @@ SELECT 'polygon' AS blockchain,
     s.tx_hash,
     s.block_number,
     s.contract_address AS endpoint_contract,
-    date_trunc('day', s.block_time) AS block_date,
+    cast(date_trunc('day', s.block_time) as date) AS block_date,
+    cast(date_trunc('month', s.block_time) as date) AS block_month,
     s.block_time,
     s.trace_address,
     s.adapter_params,
@@ -195,16 +158,17 @@ SELECT 'polygon' AS blockchain,
     COALESCE(t.amount_raw,0) / power(10, erc.decimals) AS amount_original,
     COALESCE(t.amount_raw,0) AS amount_raw
 FROM send_detail s
-INNER JOIN trans_detail t ON s.block_number = t.block_number
+LEFT JOIN trans_detail t ON s.block_number = t.block_number
     AND s.tx_hash = t.tx_hash
+    AND s.call_send_index = 1
 LEFT JOIN {{ ref('layerzero_chain_list') }} cls ON cls.chain_id = s.source_chain_id
 LEFT JOIN {{ ref('layerzero_chain_list') }} cld ON cld.chain_id = s.destination_chain_id
 LEFT JOIN {{ ref('tokens_erc20') }} erc ON erc.blockchain = 'polygon' AND erc.contract_address = t.currency_contract
 LEFT JOIN {{ source('prices', 'usd') }} p ON p.blockchain = 'polygon' AND p.contract_address = t.currency_contract
     AND p.minute = date_trunc('minute', s.block_time)
     {% if not is_incremental() %}
-    AND p.minute >= '{{transaction_start_date}}'
+    AND p.minute >= TIMESTAMP '{{transaction_start_date}}'
     {% endif %}
     {% if is_incremental() %}
-    AND p.minute >= date_trunc("day", now() - interval '1 week')
+    AND p.minute >= date_trunc('day', now() - interval '7' day)
     {% endif %}
