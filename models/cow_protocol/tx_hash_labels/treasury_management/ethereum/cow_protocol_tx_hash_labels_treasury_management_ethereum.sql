@@ -1,6 +1,7 @@
 {{
     config(
-        alias = alias('tx_hash_labels_treasury_management_ethereum'),
+        alias = 'tx_hash_labels_treasury_management_ethereum',
+        
     )
 }}
 
@@ -18,27 +19,27 @@ with
         *
     from (
         select tx_hash, evt_index, project, version
-        from {{ ref('dex_aggregator_trades') }}
+        from {{ source('dex_aggregator', 'trades') }}
         where blockchain = 'ethereum'
         and taker in (select address from daos)
         UNION ALL
         select tx_hash, evt_index, project, version
-        from {{ ref('dex_trades') }}
+        from {{ source('dex', 'trades') }}
         where blockchain = 'ethereum'
         and taker in (select address from daos)
     )
  )
 
 select
-  "ethereum" as blockchain,
-  concat(tx_hash, CAST(evt_index AS VARCHAR(100)), project, version) as tx_hash_key,
-  "Treasury management" AS name,
-  "tx_hash" AS category,
-  "gentrexha" AS contributor,
-  "query" AS source,
-  CAST('2023-03-01' AS TIMESTAMP) as created_at,
+  'ethereum' as blockchain,
+  concat(CAST(tx_hash AS VARCHAR), CAST(evt_index AS VARCHAR), project, version) as tx_hash_key,
+  'Treasury management' AS name,
+  'tx_hash' AS category,
+  'gentrexha' AS contributor,
+  'query' AS source,
+  TIMESTAMP '2023-03-01' as created_at,
   now() as updated_at,
-  "treasury_management" as model_name,
-  "usage" as label_type
+  'treasury_management' as model_name,
+  'usage' as label_type
 from
   treasury_management_trades

@@ -1,11 +1,12 @@
 {{ config(
-    tags=['dunesql'],
+
     schema = 'sharky_solana',
-    alias = alias('events'),
+    alias = 'events',
     partition_by = ['block_month'],
     materialized = 'incremental',
     file_format = 'delta',
     incremental_strategy = 'merge',
+    incremental_predicates = [incremental_predicate('DBT_INTERNAL_DEST.block_time')],
     unique_key = ['block_month', 'evt_type', 'loan_id', 'id'],
     pre_hook='{{ enforce_join_distribution("PARTITIONED") }}',
     post_hook='{{ expose_spells(\'["solana"]\',
@@ -29,7 +30,7 @@ WITH
             {% if not is_incremental() %}
             AND minute >= TIMESTAMP '{{ project_start_date }}'
             {% else %}
-            AND minute >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            AND {{ incremental_predicate('minute') }}
             {% endif %}
     ),
     offers AS (
@@ -49,7 +50,7 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_offerLoan') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -69,7 +70,7 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_rescindLoan') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -90,7 +91,7 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_takeLoan') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -111,7 +112,28 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_takeLoanV3') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
+            {% else %}
+            True
+            {% endif %}
+
+        UNION ALL
+        SELECT
+            call_block_date,
+            call_block_slot,
+            call_block_time,
+            call_tx_signer,
+            call_tx_id,
+            account_loan,
+            'Take' AS evt_type,
+            account_escrow,
+            account_orderBook,
+            account_collateralMint,
+            ARRAY[CAST(ROW(call_data, call_account_arguments) AS ROW(data VARBINARY, account_arguments ARRAY<VARCHAR>))] AS sharky_instructions
+        FROM {{ source('sharky_solana', 'sharky_call_takeLoanV3Compressed') }}
+        WHERE
+            {% if is_incremental() %}
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -131,7 +153,7 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_repayLoan') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -152,7 +174,7 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_repayLoanEscrow') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -173,7 +195,28 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_repayLoanV3') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
+            {% else %}
+            True
+            {% endif %}
+
+        UNION ALL
+        SELECT
+            call_block_date,
+            call_block_slot,
+            call_block_time,
+            call_tx_signer,
+            call_tx_id,
+            account_loan,
+            'Repay' AS evt_type,
+            account_escrow,
+            account_orderBook,
+            NULL AS account_collateralMint,
+            ARRAY[CAST(ROW(call_data, call_account_arguments) AS ROW(data VARBINARY, account_arguments ARRAY<VARCHAR>))] AS sharky_instructions
+        FROM {{ source('sharky_solana', 'sharky_call_repayLoanV3Compressed') }}
+        WHERE
+            {% if is_incremental() %}
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -193,7 +236,7 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_forecloseLoan') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -214,7 +257,7 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_forecloseLoanEscrow') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -235,7 +278,28 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_forecloseLoanV3') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
+            {% else %}
+            True
+            {% endif %}
+
+        UNION ALL
+        SELECT
+            call_block_date,
+            call_block_slot,
+            call_block_time,
+            call_tx_signer,
+            call_tx_id,
+            account_loan,
+            'Foreclose' AS evt_type,
+            account_escrow,
+            NULL AS account_orderBook,
+            NULL AS account_collateralMint,
+            ARRAY[CAST(ROW(call_data, call_account_arguments) AS ROW(data VARBINARY, account_arguments ARRAY<VARCHAR>))] AS sharky_instructions
+        FROM {{ source('sharky_solana', 'sharky_call_forecloseLoanV3Compressed') }}
+        WHERE
+            {% if is_incremental() %}
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -255,7 +319,7 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_extendLoan') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -276,7 +340,7 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_extendLoanEscrow') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
@@ -297,11 +361,31 @@ WITH
         FROM {{ source('sharky_solana', 'sharky_call_extendLoanV3') }}
         WHERE
             {% if is_incremental() %}
-            call_block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+            {{ incremental_predicate('call_block_time') }}
             {% else %}
             True
             {% endif %}
 
+        UNION ALL
+        SELECT
+            call_block_date,
+            call_block_slot,
+            call_block_time,
+            call_tx_signer,
+            call_tx_id,
+            account_loan,
+            'Extend' AS evt_type,
+            account_escrow,
+            account_orderBook,
+            NULL AS account_collateralMint,
+            ARRAY[CAST(ROW(call_data, call_account_arguments) AS ROW(data VARBINARY, account_arguments ARRAY<VARCHAR>))] AS sharky_instructions
+        FROM {{ source('sharky_solana', 'sharky_call_extendLoanV3Compressed') }}
+        WHERE
+            {% if is_incremental() %}
+            {{ incremental_predicate('call_block_time') }}
+            {% else %}
+            True
+            {% endif %}
 ), with_amount AS (
     SELECT
        events.*,
@@ -330,7 +414,7 @@ WITH
         {% if not is_incremental() %}
         AND st.block_time >= TIMESTAMP '{{ project_start_date }}'
         {% else %}
-        AND st.block_time >= DATE_TRUNC('day', NOW() - INTERVAL '7' DAY)
+        AND {{ incremental_predicate('st.block_time') }}
         {% endif %}
 ), final_event AS (
     SELECT * FROM offers

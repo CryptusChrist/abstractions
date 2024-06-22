@@ -1,5 +1,5 @@
-{{config(tags=['dunesql'],
-    alias = alias('token_standards_optimism'),
+{{config(
+    alias = 'token_standards_optimism',
         post_hook='{{ expose_spells(\'["optimism"]\',
                                     "sector",
                                     "labels",
@@ -35,7 +35,7 @@ SELECT distinct 'optimism' AS blockchain
 , NOW() AS updated_at
 , 'token_standard' AS model_name
 , 'persona' as label_type
-FROM {{ ref('nft_optimism_transfers') }} nft
+FROM {{ source('nft_optimism', 'transfers') }} nft
 {% if is_incremental() %}
 LEFT JOIN this t
     ON t.address = nft.contract_address

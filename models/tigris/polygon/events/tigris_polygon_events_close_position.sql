@@ -1,11 +1,12 @@
 {{ config(
-    tags=['dunesql'],
+    
     schema = 'tigris_polygon',
-    alias = alias('events_close_position'),
+    alias = 'events_close_position',
     partition_by = ['block_month'],
     materialized = 'incremental',
     file_format = 'delta',
     incremental_strategy = 'merge',
+    incremental_predicates = [incremental_predicate('DBT_INTERNAL_DEST.evt_block_time')],
     unique_key = ['evt_block_time', 'evt_tx_hash', 'position_id', 'evt_index', 'protocol_version']
     )
 }}
@@ -31,6 +32,8 @@ WITH
     ,'TradingV2_evt_PositionClosed'
     ,'TradingV3_evt_PositionClosed'
     ,'TradingV4_evt_PositionClosed'
+    ,'TradingV5_evt_PositionClosed'
+    ,'TradingV6_evt_PositionClosed'
 ] %}
 
 close_position_v1_1 AS (
@@ -50,7 +53,7 @@ close_position_v1_1 AS (
             contract_address as project_contract_address
         FROM {{ source('tigristrade_polygon', close_position_trading_evt) }}
         {% if is_incremental() %}
-        WHERE evt_block_time >= date_trunc('day', now() - interval '7' day)
+        WHERE 1 = 0 
         {% endif %}
         {% if not loop.last %}
         UNION ALL
@@ -76,7 +79,7 @@ close_position_v1_2 AS (
             _trader as trader
         FROM {{ source('tigristrade_polygon', close_position_trading_evt) }}
         {% if is_incremental() %}
-        WHERE evt_block_time >= date_trunc('day', now() - interval '7' day)
+        WHERE 1 = 0 
         {% endif %}
         {% if not loop.last %}
         UNION ALL
@@ -102,7 +105,7 @@ close_position_v2 AS (
             trader
         FROM {{ source('tigristrade_v2_polygon', close_position_trading_evt) }}
         {% if is_incremental() %}
-        WHERE evt_block_time >= date_trunc('day', now() - interval '7' day)
+        WHERE {{ incremental_predicate('evt_block_time') }}
         {% endif %}
         {% if not loop.last %}
         UNION ALL

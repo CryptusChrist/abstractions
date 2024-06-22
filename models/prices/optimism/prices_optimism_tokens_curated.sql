@@ -1,9 +1,9 @@
 {{ config(
         schema = 'prices_optimism',
-        alias = alias('tokens_curated'),
+        alias = 'tokens_curated',
         materialized = 'table',
         file_format = 'delta',
-        tags = ['static', 'dunesql']
+        tags = ['static']
         )
 }}
 SELECT
@@ -62,7 +62,7 @@ FROM
     -- ('socks-unisocks', 'SOCKS', 0x514832a97f0b440567055a73fe03aa160017b990,18),
     -- ('NULL', 'MAI', 0xdfa46478f9e5ea86d57387849598dbfb2e964b02,18),
     -- ('NULL', 'QI', 0x3f56e0c36d275367b8c502090edf38289b3dea0d,18),
-    -- ('NULL', 'VELO', 0x3c8b650257cfb5f272f799f5e2b4e65093a11a05,18),
+    ('velo-velodrome-finance', 'VELO', 0x9560e827af36c94d2ac33a39bce1fe78631088db,18),
     ('bal-balancer', 'BAL', 0xfe8b128ba8c78aabc59d4c64cee7ff28e9379921,18),
     ('alusd-alchemixusd', 'alUSD', 0xcb8fa9a76b8e203d8c3797bf438d8fb81ea3326a,18),
     ('aleth-alchemix-eth', 'alETH', 0x3e29d3a9316dab217754d13b28646b76607c5f04,18),
@@ -115,6 +115,11 @@ FROM
     ('busd-binance-usd', 'BUSD', 0x9c9e5fd8bbc25984b178fdce6117defa39d2db39,18),
     ('cbeth-coinbase-wrapped-staked-eth', 'cbETH', 0xaddb6a0412de1ba0f936dcaeb8aaa24578dcf3b2,18),
     ('grain-granary', 'GRAIN', 0xfD389Dc9533717239856190F42475d3f263a270d,18),
-    ('usdc-usd-coin', 'USDC', 0x0b2c639c533813f4aa9d7837caf62653d097ff85, 6)
-
+    ('usdc-usd-coin', 'USDC', 0x0b2c639c533813f4aa9d7837caf62653d097ff85, 6),
+    ('tbtc-tbtc', 'TBTC', 0x6c84a8f1c29108f47a79964b5fe888d4f4d0de40, 18),
+    ('axlusdc-axelar-wrapped-usdc', 'AXLUSDC', 0xeb466342c4d449bc9f53a865d5cb90586f405215, 6),
+    ('beets-beethoven-x', 'BEETS', 0xb4bc46bc6cb217b59ea8f4530bae26bf69f677f0, 18),
+    ('aeth-ankreth', 'ankrETH', 0xe05a08226c49b636acf99c40da8dc6af83ce5bb3, 18),
+    ('tux-magicaltux', 'TUX',  0x17aabf6838a6303fc6e9c5a227dc1eb6d95c829a, 18),
+    ('sonne-sonne-finance', 'SONNE', 0x1db2466d9f5e10d7090e7152b68d62703a2245f0, 18)    
 ) as temp (token_id, symbol, contract_address, decimals)

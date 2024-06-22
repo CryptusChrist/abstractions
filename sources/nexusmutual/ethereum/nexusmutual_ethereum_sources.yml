@@ -1,0 +1,20 @@
+version: 2
+
+sources: 
+  - name: nexusmutual_ethereum
+    tables:
+      - name: QuotationData_evt_CoverDetailsEvent
+      - name: StakingPool_evt_StakeDeposited
+      - name: StakingPool_evt_DepositExtended
+      - name: StakingPool_evt_Withdraw
+      - name: StakingPool_evt_StakeBurned
+      - name: Cover_call_createStakingPool
+      - name: StakingProducts_call_setProducts
+      - name: TokenController_call_assignStakingPoolManager
+      - name: TokenController2_call_assignStakingPoolManager
+      - name: StakingProducts_evt_ProductUpdated
+      - name: StakingPool_call_manager
+      - name: StakingPool_evt_PoolFeeChanged
+      - name: SafeTrackerNXMIS_evt_CoverReInvestmentUSDCUpdated
+      - name: MCR_evt_MCREvent
+      - name: MCR_evt_MCRUpdated

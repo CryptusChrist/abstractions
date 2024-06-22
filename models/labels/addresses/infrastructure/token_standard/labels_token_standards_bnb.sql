@@ -1,5 +1,5 @@
-{{config(tags=['dunesql'],
-    alias = alias('token_standards_bnb'),
+{{config(
+    alias = 'token_standards_bnb',
         post_hook='{{ expose_spells(\'["bnb"]\',
                                     "sector",
                                     "labels",
@@ -35,7 +35,7 @@ SELECT distinct 'bnb' AS blockchain
 , NOW() AS updated_at
 , 'token_standard' AS model_name
 , 'persona' as label_type
-FROM {{ ref('nft_bnb_transfers') }} nft
+FROM {{ source('nft_bnb','transfers') }} nft
 {% if is_incremental() %}
 LEFT JOIN this t
     ON t.address = nft.contract_address

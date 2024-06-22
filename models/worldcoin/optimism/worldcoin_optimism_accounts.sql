@@ -1,6 +1,6 @@
 {{ config(
-    tags=['dunesql'],
-    alias = alias('accounts'),
+
+    alias = 'accounts',
     materialized = 'incremental',
     file_format = 'delta',
     incremental_strategy = 'merge',
@@ -16,14 +16,14 @@ SELECT
     created_tx_from AS worldcoin_deployer_address,
     contract_address AS account_address,
     created_time,
-    creation_tx_hash,
+    created_tx_hash,
     created_block_number,
     contract_project,
     contract_name,
     trace_creator_address
 
 
-FROM {{ ref('contracts_optimism_contract_mapping') }}
+FROM {{ source('contracts_optimism', 'contract_creator_project_mapping') }}
 where 1=1 -- limit by time
     and created_time > TIMESTAMP '2023-06-01'
     {% if is_incremental() %}

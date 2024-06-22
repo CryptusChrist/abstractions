@@ -1,11 +1,13 @@
-{{config(alias = alias('nft_traders_transactions'))}}
+{{config(
+     alias = 'nft_traders_transactions'
+)}}
 
 WITH nft_trades AS (
 SELECT
     blockchain,
     tx_hash,
     buyer AS address
-FROM {{ ref('nft_trades') }}
+FROM {{   source('nft', 'trades') }}
 
 UNION
 
@@ -13,7 +15,7 @@ SELECT
     blockchain,
     tx_hash,
     seller AS address
-FROM {{ ref('nft_trades') }}
+FROM {{   source('nft', 'trades') }}
 ),
 
 total as (
@@ -39,7 +41,7 @@ SELECT * FROM (
     'nft' AS category,
     'soispoke' AS contributor,
     'query' AS source,
-    timestamp('2022-08-24') as created_at,
+    TIMESTAMP '2022-08-24'  as created_at,
     now() as updated_at,
     'nft_traders_transactions' as model_name,
     'usage' as label_type

@@ -1,4 +1,7 @@
-{{config(alias = alias('smart_dex_traders_ethereum'))}}
+{{config(
+    
+    alias = 'smart_dex_traders_ethereum'
+)}}
 /*
 ** This is a submission for the Dune labels mini hackathon (March 2023)
 ** Category: Smart Money, Smart DEX Trader (Persona)
@@ -72,7 +75,7 @@ swappers as (
         token_sold_address,
         taker,
         tx_hash
-    from {{ ref('dex_trades') }}
+    from {{ source('dex', 'trades') }}
     where 
         blockchain = 'ethereum' 
         and block_date > now() - interval '60' day
@@ -86,13 +89,13 @@ swappers as (
 -- Get list of known contract addresses
 , addresses_to_exclude as (
     select distinct address from (
-        select distinct cast(address as varchar(5)) as address from {{ ref('labels_contracts') }}
+        select distinct address from {{ ref('labels_contracts') }}
         union all
-        select distinct cast(address as varchar(5)) as address from {{ source('ethereum', 'traces') }}
+        select distinct address from {{ source('ethereum', 'traces') }}
         union all
-        select distinct cast(address as varchar(5)) as address from {{ ref('labels_mev_ethereum') }}
+        select distinct address from {{ ref('labels_mev_ethereum') }}
         union all
-        select distinct cast(address as varchar(5)) as address from {{ ref('labels_sandwich_attackers') }}
+        select distinct address from {{ ref('labels_sandwich_attackers') }}
     )
 )
 
@@ -112,7 +115,7 @@ swappers as (
 --     Trades taken should tend twards weekends or weekdays. ie. skewness <> 0
 , filter_by_weekday as (
     select taker, 
-        skewness(dayofweek(block_date)) as trading_day_variance
+        skewness(day_of_week(block_date)) as trading_day_variance
     from swappers_address_only
     group by 1
     having
@@ -120,7 +123,7 @@ swappers as (
         --  negative/positive = distribution of trades is towards end/start of the week
         --  zero = distribution of trades is even across all days of the week
         --  NaN = data does not provide sufficient information about its distribution
-        (skewness(dayofweek(block_date)) > 0 or skewness(dayofweek(block_date)) < 0)
+        (skewness(day_of_week(block_date)) > 0 or skewness(day_of_week(block_date)) < 0)
 )
 
 -- H2. A retail trader trades takes breaks between trades. 
@@ -128,7 +131,7 @@ swappers as (
 , time_between_trades as (
     select 
         taker,
-        ( unix_timestamp(block_time) - unix_timestamp(lag(block_time, 1) over (partition by taker order by block_time)) ) / 60  as time_between_trades_mins
+        date_diff('second', lag(block_time, 1) over (partition by taker order by block_time), block_time) / 60  as time_between_trades_mins
     from swappers_address_only
 )
 -- Note: We can't have nested aggregate functions, so breaking it up into two CTEs
@@ -164,7 +167,7 @@ swappers as (
 
 -- Get latest prices
 , prices as (
-    select symbol, price, cast(contract_address as varchar(5)) as token_address
+    select symbol, price, contract_address as token_address
     from {{ ref('prices_usd_latest') }}
     where blockchain = 'ethereum'
 )
@@ -178,15 +181,15 @@ swappers as (
         'buy' as action,
         block_time,
         token_sold_symbol,
-        cast(token_sold_address as varchar(5)) as token_sold_address,
+        token_sold_address as token_sold_address,
         token_bought_symbol,
-        cast(token_bought_address as varchar(5)) as token_bought_address,
+        token_bought_address as token_bought_address,
         token_bought_amount,
         amount_usd, 
         taker,
         amount_usd / token_bought_amount as cost_basis,
         project as venue
-    from {{ ref('dex_trades') }}
+    from {{ source('dex', 'trades') }}
     where
         blockchain = 'ethereum'
         and block_time > now() - interval '60' day
@@ -208,15 +211,15 @@ swappers as (
         'sell' as action,
         block_time,
         token_sold_symbol,
-        cast(token_sold_address as varchar(5)) as token_sold_address,
+        token_sold_address as token_sold_address,
         token_bought_symbol,
-        cast(token_bought_address as varchar(5)) as token_bought_address,
+        token_bought_address token_bought_address,
         token_sold_amount,
         amount_usd, 
         taker,
         amount_usd / token_sold_amount as cost_basis,
         project as venue
-    from {{ ref('dex_trades') }}
+    from {{ source('dex', 'trades') }}
     where
         blockchain = 'ethereum'
         and block_time > now() - interval '60' day
@@ -280,7 +283,7 @@ select
     'dex' as category, 
     'stone' as contributor,
     'query' as source,
-    cast('2023-03-14' as timestamp) as created_at,
+    TIMESTAMP '2023-03-14' as created_at,
     now() as updated_at,
     'smart_dex_traders' as model_name, 
     'persona' as label_type

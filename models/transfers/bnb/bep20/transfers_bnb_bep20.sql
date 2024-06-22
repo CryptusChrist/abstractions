@@ -1,65 +1,107 @@
-{{ config(materialized='view', alias = alias('bep20'),
-        post_hook='{{ expose_spells(\'["bnb"]\',
+{{ config(
+
+    materialized = 'incremental',
+    partition_by = ['block_month'],
+    file_format = 'delta',
+    incremental_strategy = 'merge',
+    incremental_predicates = [incremental_predicate('DBT_INTERNAL_DEST.evt_block_time')],
+    unique_key = ['transfer_type', 'evt_tx_hash', 'evt_index', 'wallet_address'],
+    alias = 'erc20',
+    post_hook='{{ expose_spells(\'["bnb"]\',
                                     "sector",
                                     "transfers",
-                                    \'["soispoke", "dot2dotseurat", "tschubotz"]\') }}') }}
+                                    \'["soispoke", "dot2dotseurat", "tschubotz", "Henrystats"]\') }}'
+    )
+}}
+WITH
 
-with
-    sent_transfers as (
-        select
-            'send-' || cast(evt_tx_hash as varchar(100)) || '-' || cast (evt_index as varchar(100)) || '-' || CAST(to AS VARCHAR(100)) as unique_transfer_id,
+erc20_transfers  as (
+        SELECT
+            'receive' as transfer_type,
+            evt_tx_hash,
+            evt_index,
+            evt_block_time,
             to as wallet_address,
             contract_address as token_address,
+            CAST(value as double) as amount_raw
+        FROM
+        {{ source('erc20_bnb', 'evt_transfer') }}
+        {% if is_incremental() %}
+            WHERE {{ incremental_predicate('evt_block_time') }}
+        {% endif %}
+
+        UNION ALL
+
+        SELECT
+            'send' as transfer_type,
+            evt_tx_hash,
+            evt_index,
             evt_block_time,
-            value as amount_raw
-        from
-            {{ source('erc20_bnb', 'evt_transfer') }}
-    )
+            "from" as wallet_address,
+            contract_address as token_address,
+            -CAST(value as double) as amount_raw
+        FROM
+        {{ source('erc20_bnb', 'evt_transfer') }}
+        {% if is_incremental() %}
+            WHERE {{ incremental_predicate('evt_block_time') }}
+        {% endif %}
+),
 
-    ,
-    received_transfers as (
-        select
-        'receive-' || cast(evt_tx_hash as varchar(100)) || '-' || cast (evt_index as varchar(100)) || '-' || CAST("from" AS VARCHAR(100)) as unique_transfer_id,
-        "from" as wallet_address,
-        contract_address as token_address,
-        evt_block_time,
-        '-' || CAST(value AS VARCHAR(100)) as amount_raw
-        from
-            {{ source('erc20_bnb', 'evt_transfer') }}
-    )
-
-    ,
-    deposited_bnb as (
-        select
-            'deposit-' || cast(evt_tx_hash as varchar(100)) || '-' || cast (evt_index as varchar(100)) || '-' ||  CAST(dst AS VARCHAR(100)) as unique_transfer_id,
+wbnb_events as (
+        SELECT
+            'deposit' as transfer_type,
+            evt_tx_hash,
+            evt_index,
+            evt_block_time,
             dst as wallet_address,
             contract_address as token_address,
-            evt_block_time,
-            wad as amount_raw
-        from
-            {{ source('bnb_bnb', 'WBNB_evt_Deposit') }}
-    )
+            CAST(wad as double)as amount_raw
+        FROM
+        {{ source('bnb_bnb', 'WBNB_evt_Deposit') }}
+        {% if is_incremental() %}
+        WHERE {{ incremental_predicate('evt_block_time') }}
+        {% endif %}
 
-    ,
-    withdrawn_bnb as (
-        select
-            'withdraw-' || cast(evt_tx_hash as varchar(100)) || '-' || cast (evt_index as varchar(100)) || '-' ||  CAST(src AS VARCHAR(100)) as unique_transfer_id,
+        UNION ALL
+
+        SELECT
+            'withdraw' as transfer_type,
+            evt_tx_hash,
+            evt_index,
+            evt_block_time,
             src as wallet_address,
             contract_address as token_address,
-            evt_block_time,
-            '-' || CAST(wad AS VARCHAR(100)) as amount_raw
-        from
-            {{ source('bnb_bnb', 'WBNB_evt_Withdrawal') }}
-    )
-    
-select unique_transfer_id, 'bnb' as blockchain, wallet_address, token_address, evt_block_time, CAST(amount_raw AS VARCHAR(100)) as amount_raw
-from sent_transfers
-union
-select unique_transfer_id, 'bnb' as blockchain, wallet_address, token_address, evt_block_time, CAST(amount_raw AS VARCHAR(100)) as amount_raw
-from received_transfers
-union
-select unique_transfer_id, 'bnb' as blockchain, wallet_address, token_address, evt_block_time, CAST(amount_raw AS VARCHAR(100)) as amount_raw
-from deposited_bnb
-union
-select unique_transfer_id, 'bnb' as blockchain, wallet_address, token_address, evt_block_time, CAST(amount_raw AS VARCHAR(100)) as amount_raw
-from withdrawn_bnb
+            -CAST(wad as double)as amount_raw
+        FROM
+        {{ source('bnb_bnb', 'WBNB_evt_Withdrawal') }}
+        {% if is_incremental() %}
+        WHERE {{ incremental_predicate('evt_block_time') }}
+        {% endif %}
+)
+SELECT
+    'bnb' as blockchain,
+    transfer_type,
+    evt_tx_hash,
+    evt_index,
+    evt_block_time,
+    CAST(date_trunc('month', evt_block_time) as date) as block_month,
+    wallet_address,
+    token_address,
+    amount_raw
+FROM
+erc20_transfers
+
+UNION ALL
+
+SELECT
+    'bnb' as blockchain,
+    transfer_type,
+    evt_tx_hash,
+    evt_index,
+    evt_block_time,
+    CAST(date_trunc('month', evt_block_time) as date) as block_month,
+    wallet_address,
+    token_address,
+    amount_raw
+FROM
+wbnb_events

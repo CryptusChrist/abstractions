@@ -1,5 +1,5 @@
-{{ config(tags=['dunesql'],
-    alias = alias('infrastructure'),
+{{ config(
+    alias = 'infrastructure',
     materialized = 'table',
     file_format = 'delta',
     post_hook='{{ expose_spells(\'["ethereum"]\',
@@ -8,18 +8,20 @@
                                 \'["ilemi", "hildobby"]\') }}')
 }}
 
+--exclude due to duplicates:
+ --ref('labels_eth_stakers') 
+
 {% set infrastructure_models = [
- ref('labels_eth_stakers')
- , ref('labels_miners')
- , ref('labels_system_addresses')
- , ref('labels_validators')
- , ref('labels_flashbots_ethereum')
- , ref('labels_mev_ethereum')
- , ref('labels_contract_deployers')
- , ref('labels_stablecoins')
- , ref('labels_cex_tokens')
- , ref('labels_burn_addresses')
- , ref('labels_flashloans_ethereum')
+    ref('labels_miners')
+    , ref('labels_system_addresses')
+    , ref('labels_validators')
+    , ref('labels_flashbots_ethereum')
+    , ref('labels_mev_ethereum')
+    , ref('labels_contract_deployers')
+    , ref('labels_stablecoins')
+    , ref('labels_cex_tokens')
+    , ref('labels_burn_addresses')
+    , ref('labels_flashloans_ethereum')
 ] %}
 
 SELECT *

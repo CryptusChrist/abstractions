@@ -1,7 +1,7 @@
 {{ config(
-    tags = ['dunesql']
-      , partition_by = ['block_month']
-      , alias = alias('flashloans')
+      partition_by = ['block_month']
+      , schema = 'equalizer_bnb'
+      , alias = 'flashloans'
       , materialized = 'incremental'
       , file_format = 'delta'
       , incremental_strategy = 'merge'
@@ -14,7 +14,7 @@
 }}
 
 SELECT 'bnb' AS blockchain
-, 'Equalizer' AS project
+, 'equalizer' AS project
 , '1' AS version
 , CAST(date_trunc('Month', flash.evt_block_time) as date) as block_month
 , flash.evt_block_time AS block_time
@@ -29,7 +29,7 @@ SELECT 'bnb' AS blockchain
 , flash.receiver AS recipient
 , flash.contract_address
 FROM {{ source('equalizer_bnb','FlashLoanProvider_evt_FlashLoan') }} flash
-LEFT JOIN {{ ref('tokens_bnb_bep20') }} tok ON tok.contract_address=flash.token
+LEFT JOIN {{ source('tokens_bnb', 'bep20') }} tok ON tok.contract_address=flash.token
 LEFT JOIN {{ source('prices','usd') }} pu ON pu.blockchain = 'bnb'  
   AND pu.contract_address = flash.token
   AND pu.minute = date_trunc('minute', flash.evt_block_time)

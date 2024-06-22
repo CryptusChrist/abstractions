@@ -1,11 +1,12 @@
 {{ config(
-    tags=['dunesql'],
+    
     schema = 'tigris_polygon',
-    alias = alias('events_modify_margin'),
+    alias = 'events_modify_margin',
     partition_by = ['block_month'],
     materialized = 'incremental',
     file_format = 'delta',
     incremental_strategy = 'merge',
+    incremental_predicates = [incremental_predicate('DBT_INTERNAL_DEST.evt_block_time')],
     unique_key = ['evt_block_time', 'evt_tx_hash', 'position_id', 'trader', 'margin', 'leverage', 'protocol_version']
     )
 }}
@@ -38,6 +39,8 @@ WITH
     ,'TradingV2_evt_MarginModified'
     ,'TradingV3_evt_MarginModified'
     ,'TradingV4_evt_MarginModified'
+    ,'TradingV5_evt_MarginModified'
+    ,'TradingV6_evt_MarginModified'
 ] %}
 
 {% set remove_margin_v2_call_tables = [
@@ -45,6 +48,8 @@ WITH
     ,'TradingV2_call_removeMargin'
     ,'TradingV3_call_removeMargin'
     ,'TradingV4_call_removeMargin'
+    ,'TradingV5_call_removeMargin'
+    ,'TradingV6_call_removeMargin'
 ] %}
 
 {% set add_margin_v2_call_tables = [
@@ -52,6 +57,8 @@ WITH
     ,'TradingV2_call_addMargin'
     ,'TradingV3_call_addMargin'
     ,'TradingV4_call_addMargin'
+    ,'TradingV5_call_addMargin'
+    ,'TradingV6_call_addMargin'
 ] %}
 
 modify_margin_events_v1 AS (
@@ -72,7 +79,7 @@ modify_margin_events_v1 AS (
             mm.contract_address as project_contract_address
         FROM {{ source('tigristrade_polygon', modify_margin_trading_evt) }} mm
         {% if is_incremental() %}
-        WHERE mm.evt_block_time >= date_trunc('day', now() - interval '7' day)
+        WHERE 1 = 0 
         {% endif %}
         {% if not loop.last %}
         UNION ALL
@@ -90,7 +97,7 @@ add_margin_calls_v1 AS (
             ap._addMargin/1e18 as margin_change
         FROM {{ source('tigristrade_polygon', add_margin_trading_call) }} ap
         {% if is_incremental() %}
-        WHERE ap.call_block_time >= date_trunc('day', now() - interval '7' day)
+        WHERE 1 = 0 
         {% endif %}
         {% if not loop.last %}
         UNION ALL
@@ -108,7 +115,7 @@ remove_margin_calls_v1 AS (
             ap._removeMargin/1e18 as margin_change
         FROM {{ source('tigristrade_polygon', remove_margin_trading_call) }} ap
         {% if is_incremental() %}
-        WHERE ap.call_block_time >= date_trunc('day', now() - interval '7' day)
+        WHERE 1 = 0 
         {% endif %}
         {% if not loop.last %}
         UNION ALL
@@ -155,7 +162,7 @@ modify_margin_events_v2 AS (
             mm.contract_address as project_contract_address
         FROM {{ source('tigristrade_v2_polygon', modify_margin_trading_evt) }} mm
         {% if is_incremental() %}
-        WHERE mm.evt_block_time >= date_trunc('day', now() - interval '7' day)
+        WHERE {{ incremental_predicate('mm.evt_block_time') }}
         {% endif %}
         {% if not loop.last %}
         UNION ALL
@@ -173,7 +180,7 @@ add_margin_calls_v2 AS (
             ap._addMargin/1e18 as margin_change
         FROM {{ source('tigristrade_v2_polygon', add_margin_trading_call) }} ap
         {% if is_incremental() %}
-        WHERE ap.call_block_time >= date_trunc('day', now() - interval '7' day)
+        WHERE {{ incremental_predicate('ap.call_block_time') }}
         {% endif %}
         {% if not loop.last %}
         UNION ALL
@@ -191,7 +198,7 @@ remove_margin_calls_v2 AS (
             ap._removeMargin/1e18 as margin_change
         FROM {{ source('tigristrade_v2_polygon', remove_margin_trading_call) }} ap
         {% if is_incremental() %}
-        WHERE ap.call_block_time >= date_trunc('day', now() - interval '7' day)
+        WHERE {{ incremental_predicate('ap.call_block_time') }}
         {% endif %}
         {% if not loop.last %}
         UNION ALL

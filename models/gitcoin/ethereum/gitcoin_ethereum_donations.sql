@@ -1,9 +1,11 @@
 {{ config(
-    alias = alias('donations'),
-    partition_by = ['block_date'],
+    schema = 'gitcoin_ethereum',
+    alias = 'donations',
+    partition_by = ['block_month'],
     materialized = 'incremental',
     file_format = 'delta',
     incremental_strategy = 'merge',
+    incremental_predicates = [incremental_predicate('DBT_INTERNAL_DEST.block_time')],
     unique_key = ['blockchain', 'tx_hash', 'evt_index'],
     post_hook='{{ expose_spells(\'["ethereum"]\',
                                 "project",
@@ -19,17 +21,17 @@ WITH gitcoin_donations AS (
     SELECT gd.evt_block_number AS block_number
     , gd.evt_block_time AS block_time
     , gd.amount AS amount_raw
-    , CASE WHEN gd.token = '{{eth_contract}}'
+    , CASE WHEN gd.token = {{eth_contract}}
         THEN gd.amount/POWER(10, 18)
         ELSE gd.amount/POWER(10, tok.decimals)
         END AS amount_original
     , gd.donor AS donor
     , gd.dest AS recipient
-    , CASE WHEN gd.token = '{{eth_contract}}'
-        THEN '{{weth_contract}}'
+    , CASE WHEN gd.token = {{eth_contract}}
+        THEN {{weth_contract}}
         ELSE gd.token
         END AS currency_contract
-    , CASE WHEN gd.token = '{{eth_contract}}'
+    , CASE WHEN gd.token = {{eth_contract}}
         THEN 'ETH'
         ELSE tok.symbol
         END AS currency_symbol
@@ -37,10 +39,10 @@ WITH gitcoin_donations AS (
     , gd.contract_address
     , gd.evt_tx_hash AS tx_hash
     FROM {{ source('gitcoin_ethereum', 'BulkCheckout_evt_DonationSent') }} gd
-    LEFT JOIN {{ ref('tokens_ethereum_erc20') }} tok
+    LEFT JOIN {{ source('tokens_ethereum', 'erc20') }} tok
         ON tok.contract_address=gd.token
     {% if is_incremental() %}
-    WHERE gd.evt_block_time >= date_trunc("day", now() - interval '1 week')
+    WHERE {{ incremental_predicate('gd.evt_block_time') }}
     {% endif %}
     )
 
@@ -50,6 +52,7 @@ SELECT 'ethereum' AS blockchain
 , 'v1' AS version
 , grd.round_name AS grant_round
 , date_trunc('day', gd.block_time) AS block_date
+, CAST(date_trunc('month', gd.block_time) AS DATE) AS block_month
 , gd.block_time
 , gd.block_number
 , gd.amount_raw

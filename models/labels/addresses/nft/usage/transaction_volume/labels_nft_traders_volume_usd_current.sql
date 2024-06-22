@@ -1,11 +1,13 @@
-{{config(alias = alias('nft_traders_volume_usd_current'))}}
+{{config(
+     alias = 'nft_traders_volume_usd_current'
+)}}
 
 WITH nft_trades AS (
 SELECT
     blockchain,
     amount_usd,
     buyer AS address
-FROM {{ ref('nft_trades') }}
+FROM {{   source('nft', 'trades') }}
 WHERE block_time > NOW() - interval '14' day
 
 UNION
@@ -14,7 +16,7 @@ SELECT
     blockchain,
     amount_usd,
     seller AS address
-FROM {{ ref('nft_trades') }}
+FROM {{   source('nft', 'trades') }}
 WHERE block_time > NOW() - interval '14' day
 ),
 
@@ -41,7 +43,7 @@ SELECT * FROM (
     'nft' AS category,
     'hildobby' AS contributor,
     'query' AS source,
-    timestamp('2023-03-29') as created_at,
+    TIMESTAMP '2023-03-29'  as created_at,
     now() as updated_at,
     'nft_traders_volume_usd_current' as model_name,
     'usage' as label_type

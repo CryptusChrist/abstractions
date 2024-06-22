@@ -1,6 +1,5 @@
 {{ config(
-      tags=['dunesql']
-      , alias = alias('flashloans')
+     alias = 'flashloans'
       , partition_by = ['block_month']
       , materialized = 'incremental'
       , file_format = 'delta'
@@ -14,7 +13,7 @@
 }}
 
 SELECT 'ethereum' AS blockchain
-, 'Maker' AS project
+, 'maker' AS project
 , '1' AS version
 , CAST(date_trunc('Month', flash.evt_block_time) as date) as block_month
 , flash.evt_block_time AS block_time
@@ -29,7 +28,7 @@ SELECT 'ethereum' AS blockchain
 , flash.receiver AS recipient
 , flash.contract_address
 FROM {{ source('maker_ethereum','dssflashlegacy_evt_FlashLoan') }} flash
-LEFT JOIN {{ ref('tokens_ethereum_erc20') }} tok ON tok.contract_address=flash.token
+LEFT JOIN {{ source('tokens_ethereum', 'erc20') }} tok ON tok.contract_address=flash.token
 LEFT JOIN {{ source('prices','usd') }} pu ON pu.blockchain = 'ethereum'  
   AND pu.contract_address = flash.token
   AND pu.minute = date_trunc('minute', flash.evt_block_time)

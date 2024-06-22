@@ -29,9 +29,9 @@ models:
       - &project
         name: project
         description: "Project name"
-      - &airdrop_identifier
-        name: airdrop_identifier
-        description: "Airdrop identifier name"
+      - &airdrop_number
+        name: airdrop_number
+        description: "Airdrop identifier number"
       - &recipient
         name: recipient
         description: "Airdrop recipient"
@@ -112,7 +112,7 @@ models:
             values: ['for', 'against', 'abstain']
       - &reason
         name: reason
-        description: "Optional onchain commments to explain votes"
+        description: "Optional onchain comments to explain votes"
 
   - name: dydx_ethereum_proposals
     meta:

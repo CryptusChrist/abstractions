@@ -1,8 +1,8 @@
 {{ config(
-        tags = ['dunesql'],
-        alias = alias('transactions'),
+        schema='evms',
+        alias = 'transactions',
         unique_key=['blockchain', 'tx_hash', 'evt_index'],
-        post_hook='{{ expose_spells(\'["ethereum", "polygon", "bnb", "avalanche_c", "gnosis", "fantom", "optimism", "arbitrum", "celo", "base"]\',
+        post_hook='{{ expose_spells(\'["ethereum", "polygon", "bnb", "avalanche_c", "gnosis", "fantom", "optimism", "arbitrum", "celo", "base", "goerli", "zksync", "zora", "scroll", "linea", "zkevm", "blast", "mantle"]\',
                                     "sector",
                                     "evms",
                                     \'["hildobby"]\') }}'
@@ -21,6 +21,14 @@
      , ('optimism', source('optimism', 'transactions'))
      , ('celo', source('celo', 'transactions'))
      , ('base', source('base', 'transactions'))
+     , ('goerli', source('goerli', 'transactions'))
+     , ('zksync', source('zksync', 'transactions'))
+     , ('zora', source('zora', 'transactions'))
+     , ('scroll', source('scroll', 'transactions'))
+     , ('linea', source('linea', 'transactions'))
+     , ('zkevm', source('zkevm', 'transactions'))
+     , ('blast', source('blast', 'transactions'))
+     , ('mantle', source('mantle', 'transactions'))
 ] %}
 
 SELECT *
@@ -48,7 +56,7 @@ FROM (
         , "type"
         , CAST(value AS double) AS value
         --Logic for L2s
-                {% if transactions_model[0] in all_op_chains() %}
+                {% if transactions_model[0] in all_op_chains() or transactions_model[0] == 'scroll' %}
                 , l1_tx_origin
                 , l1_fee_scalar
                 , l1_block_number
@@ -61,7 +69,7 @@ FROM (
                 {% elif transactions_model[0] == 'arbitrum' %}
                 , cast(NULL as varbinary) AS l1_tx_origin
                 , CAST(NULL AS double) AS l1_fee_scalar
-                , CAST(NULL AS DECIMAL(38,0)) AS l1_fee_scalar
+                , CAST(NULL AS DECIMAL(38,0)) AS l1_block_number
                 , CAST(NULL AS DECIMAL(38,0)) AS l1_fee
                 , CAST(NULL AS DECIMAL(38,0)) AS l1_gas_price
                 , gas_used_for_l1 AS l1_gas_used

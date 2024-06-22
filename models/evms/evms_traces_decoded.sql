@@ -1,8 +1,8 @@
 {{ config(
-        tags = ['dunesql'],
-        alias = alias('traces_decoded'),
+        schema='evms',
+        alias = 'traces_decoded',
         unique_key=['blockchain', 'tx_hash', 'evt_index'],
-        post_hook='{{ expose_spells(\'["ethereum", "polygon", "bnb", "avalanche_c", "gnosis", "fantom", "optimism", "arbitrum", "celo", "base"]\',
+        post_hook='{{ expose_spells(\'["ethereum", "polygon", "bnb", "avalanche_c", "gnosis", "fantom", "optimism", "arbitrum", "celo", "base", "goerli", "zksync", "zora", "scroll", "linea", "zkevm", "blast", "mantle"]\',
                                     "sector",
                                     "evms",
                                     \'["hildobby"]\') }}'
@@ -20,6 +20,14 @@
      , ('arbitrum', source('arbitrum', 'traces_decoded'))
      , ('celo', source('celo', 'traces_decoded'))
      , ('base', source('base', 'traces_decoded'))
+     , ('goerli', source('goerli', 'traces_decoded'))
+     , ('zksync', source('zksync', 'traces_decoded'))
+     , ('zora', source('zora', 'traces_decoded'))
+     , ('scroll', source('scroll', 'traces_decoded'))
+     , ('linea', source('linea', 'traces_decoded'))
+     , ('zkevm', source('zkevm', 'traces_decoded'))
+     , ('blast', source('blast', 'traces_decoded'))
+     , ('mantle', source('mantle', 'traces_decoded'))
 ] %}
 
 SELECT *

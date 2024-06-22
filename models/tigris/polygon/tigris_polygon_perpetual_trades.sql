@@ -1,10 +1,12 @@
 {{ config(
-    tags=['dunesql'],
-    alias = alias('perpetual_trades'),
+    schema = 'tigris_polygon',
+    tags=['prod_exclude'],
+    alias = 'perpetual_trades',
     partition_by = ['block_month'],
     materialized = 'incremental',
     file_format = 'delta',
     incremental_strategy = 'merge',
+    incremental_predicates = [incremental_predicate('DBT_INTERNAL_DEST.block_time')],
     unique_key = ['block_date', 'blockchain', 'project', 'version', 'tx_hash', 'evt_index'],
     post_hook='{{ expose_spells(\'["polygon"]\',
                                 "project",
@@ -94,6 +96,8 @@ all_fees as (
     SELECT * FROM excluded_trades
 )
 
+-- use to reload 
+
 SELECT 
     t.blockchain, 
     t.day as block_date, 
@@ -135,9 +139,9 @@ INNER JOIN
     AND tx.block_time >= TIMESTAMP '{{project_start_date}}'
     {% endif %}
     {% if is_incremental() %}
-    AND tx.block_time >= date_trunc('day', now() - interval '7' Day)
+    AND {{ incremental_predicate('tx.block_time') }}
     {% endif %}
 LEFT JOIN 
-{{ ref('tokens_erc20') }} er 
+{{ source('tokens', 'erc20') }} er 
     ON t.margin_asset = er.contract_address 
     AND er.blockchain = 'polygon'

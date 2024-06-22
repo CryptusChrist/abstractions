@@ -1,5 +1,5 @@
-{{config(tags=['dunesql'],
-    alias = alias('token_standards_goerli'),
+{{config(
+    alias = 'token_standards_goerli',
         post_hook='{{ expose_spells(\'["goerli"]\',
                                     "sector",
                                     "labels",
@@ -35,7 +35,7 @@ SELECT distinct 'goerli' AS blockchain
 , NOW() AS updated_at
 , 'token_standard' AS model_name
 , 'persona' as label_type
-FROM {{ ref('nft_goerli_transfers') }} nft
+FROM {{ source('nft_goerli','transfers') }} nft
 {% if is_incremental() %}
 LEFT JOIN this t
     ON t.address = nft.contract_address

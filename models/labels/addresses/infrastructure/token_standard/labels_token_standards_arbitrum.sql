@@ -1,5 +1,5 @@
-{{config(tags=['dunesql'],
-    alias = alias('token_standards_arbitrum'),
+{{config(
+    alias = 'token_standards_arbitrum',
         post_hook='{{ expose_spells(\'["arbitrum"]\',
                                     "sector",
                                     "labels",
@@ -35,7 +35,7 @@ SELECT distinct 'arbitrum' AS blockchain
 , NOW() AS updated_at
 , 'token_standard' AS model_name
 , 'persona' as label_type
-FROM {{ ref('nft_arbitrum_transfers') }} nft
+FROM {{ source('nft_arbitrum','transfers') }} nft
 {% if is_incremental() %}
 LEFT JOIN this t
     ON t.address = nft.contract_address

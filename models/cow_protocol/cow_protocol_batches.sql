@@ -1,6 +1,6 @@
 {{ config(
-        alias = alias('batches'),
-        tags=['dunesql'],
+        alias = 'batches',
+        
         post_hook='{{ expose_spells(\'["ethereum", "gnosis"]\',
                                     "project",
                                     "cow_protocol",
@@ -12,7 +12,7 @@ FROM
 (
         SELECT
             'ethereum' AS blockchain,
-            'CoW Protocol' AS project,
+            'cow_protocol' AS project,
             '1' AS version,
             block_date,
             block_time,
@@ -34,7 +34,7 @@ FROM
 
         SELECT
             'gnosis' AS blockchain,
-            'CoW Protocol' AS project,
+            'cow_protocol' AS project,
             '1' AS version,
             block_date,
             block_time,

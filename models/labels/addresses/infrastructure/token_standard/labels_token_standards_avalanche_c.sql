@@ -1,5 +1,5 @@
-{{config(tags=['dunesql'],
-    alias = alias('token_standards_avalanche_c'),
+{{config(
+    alias = 'token_standards_avalanche_c',
         post_hook='{{ expose_spells(\'["avalanche_c"]\',
                                     "sector",
                                     "labels",
@@ -35,7 +35,7 @@ SELECT distinct 'avalanche_c' AS blockchain
 , NOW() AS updated_at
 , 'token_standard' AS model_name
 , 'persona' as label_type
-FROM {{ ref('nft_avalanche_c_transfers') }} nft
+FROM {{ source('nft_avalanche_c','transfers')}} nft
 {% if is_incremental() %}
 LEFT JOIN this t
     ON t.address = nft.contract_address

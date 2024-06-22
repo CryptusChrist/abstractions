@@ -1,16 +1,16 @@
 {{ config(
     schema='lido_liquidity_optimism',
-    alias = alias('balancer_pools'),
-    tags = ['dunesql'], 
-    partition_by = ['time'],
+    alias = 'balancer_pools',
+     
     materialized = 'incremental',
     file_format = 'delta',
     incremental_strategy = 'merge',
     unique_key = ['pool', 'time'],
-    post_hook='{{ expose_spells(\'["optimism"]\',
-                                "project",
-                                "lido_liquidity",
-                                \'["ppclunghe"]\') }}'
+    incremental_predicates = [incremental_predicate('DBT_INTERNAL_DEST.time')],
+    post_hook='{{ expose_spells(blockchains = \'["optimism"]\',
+                                spell_type = "project",
+                                spell_name = "lido_liquidity",
+                                contributors = \'["pipistrella"]\') }}'
     )
 }}
 
@@ -71,7 +71,7 @@ WHERE call_create.output_0 in (select distinct  poolAddress from pools)
     {% if not is_incremental() %}
     WHERE DATE_TRUNC('day', p.minute) >= DATE '{{ project_start_date }}'
     {% else %}
-    WHERE DATE_TRUNC('day', p.minute) >= DATE_TRUNC('day', NOW() - INTERVAL '1' day)
+    WHERE {{ incremental_predicate('p.minute') }}
     {% endif %}
 
     and date_trunc('day', minute) < date_trunc('day', now())
@@ -100,7 +100,7 @@ WHERE call_create.output_0 in (select distinct  poolAddress from pools)
     {% if not is_incremental() %}
     WHERE DATE_TRUNC('day', p.minute) >= DATE '{{ project_start_date }}'
     {% else %}
-    WHERE DATE_TRUNC('day', p.minute) >= DATE_TRUNC('day', NOW() - INTERVAL '1' day)
+    WHERE {{ incremental_predicate('p.minute') }}
     {% endif %}
 
     and date_trunc('day', minute) < current_date
@@ -119,7 +119,7 @@ union all
     and blockchain = 'optimism'
     and contract_address = 0x7F5c764cBc14f9669B88837ca1490cCa17c31607
 union all
-SELECT distinct
+    SELECT distinct
         DATE_TRUNC('day', minute) AS time,
         0x6af3737f6d58ae8bcb9f2b597125d37244596e59 as token,
         'bb-rf-soWBTC',
@@ -129,7 +129,7 @@ SELECT distinct
     {% if not is_incremental() %}
     WHERE DATE_TRUNC('day', p.minute) >= DATE '{{ project_start_date }}'
     {% else %}
-    WHERE DATE_TRUNC('day', p.minute) >= DATE_TRUNC('day', NOW() - INTERVAL '1' day)
+    WHERE {{ incremental_predicate('p.minute') }}
     {% endif %}
 
     and date_trunc('day', minute) < current_date
@@ -158,7 +158,7 @@ SELECT distinct
     {% if not is_incremental() %}
     WHERE DATE_TRUNC('day', p.minute) >= DATE '{{ project_start_date }}'
     {% else %}
-    WHERE DATE_TRUNC('day', p.minute) >= DATE_TRUNC('day', NOW() - INTERVAL '1' day)
+    WHERE {{ incremental_predicate('p.minute') }}
     {% endif %}
 
     and date_trunc('day', minute) < current_date
@@ -189,7 +189,7 @@ union all
     {% if not is_incremental() %}
     WHERE DATE_TRUNC('day', p.minute) >= DATE '{{ project_start_date }}'
     {% else %}
-    WHERE DATE_TRUNC('day', p.minute) >= DATE_TRUNC('day', NOW() - INTERVAL '1' day)
+    WHERE {{ incremental_predicate('p.minute') }}
     {% endif %}
 
     and blockchain = 'optimism'
@@ -214,7 +214,7 @@ union all
                 {% if not is_incremental() %}
                 WHERE DATE_TRUNC('day', evt_block_time) >= DATE '{{ project_start_date }}'
                 {% else %}
-                WHERE DATE_TRUNC('day', evt_block_time) >= DATE_TRUNC('day', NOW() - INTERVAL '1' day)
+                WHERE {{ incremental_predicate('evt_block_time') }}
                 {% endif %}
                 
                 and poolId in (select pool_id from pools)
@@ -229,7 +229,7 @@ union all
                 {% if not is_incremental() %}
                 WHERE DATE_TRUNC('day', evt_block_time) >= DATE '{{ project_start_date }}'
                 {% else %}
-                WHERE DATE_TRUNC('day', evt_block_time) >= DATE_TRUNC('day', NOW() - INTERVAL '1' day)
+                WHERE {{ incremental_predicate('evt_block_time') }}
                 {% endif %}
                 
                 and poolId in (select pool_id from pools)
@@ -248,7 +248,7 @@ union all
         {% if not is_incremental() %}
         WHERE DATE_TRUNC('day', evt_block_time) >= DATE '{{ project_start_date }}'
         {% else %}
-        WHERE DATE_TRUNC('day', evt_block_time) >= DATE_TRUNC('day', NOW() - INTERVAL '1' day)
+        WHERE {{ incremental_predicate('evt_block_time') }}
         {% endif %}
         
         and poolId in (select pool_id from pools)
@@ -266,7 +266,7 @@ union all
         {% if not is_incremental() %}
         WHERE DATE_TRUNC('day', evt_block_time) >= DATE '{{ project_start_date }}'
         {% else %}
-        WHERE DATE_TRUNC('day', evt_block_time) >= DATE_TRUNC('day', NOW() - INTERVAL '1' day)
+        WHERE {{ incremental_predicate('evt_block_time') }}
         {% endif %}
         
         and poolId in (select pool_id from pools)
@@ -439,7 +439,7 @@ on main.day = paired4.day and main.pool_id = paired4.pool_id
     {% if not is_incremental() %}
     WHERE DATE_TRUNC('day', s.evt_block_time) >= DATE '{{ project_start_date }}'
     {% else %}
-    WHERE DATE_TRUNC('day', s.evt_block_time) >= DATE_TRUNC('day', NOW() - INTERVAL '1' day)
+    WHERE {{ incremental_predicate('s.evt_block_time') }}
     {% endif %} 
     and s.poolId in (select pool_id from pools)
     group by 1,2

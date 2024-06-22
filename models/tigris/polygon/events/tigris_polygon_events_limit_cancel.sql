@@ -1,11 +1,12 @@
 {{ config(
-	tags=['dunesql'],
+	
     schema = 'tigris_polygon',
-    alias = alias('events_limit_cancel'),
+    alias = 'events_limit_cancel',
     partition_by = ['block_month'],
     materialized = 'incremental',
     file_format = 'delta',
     incremental_strategy = 'merge',
+    incremental_predicates = [incremental_predicate('DBT_INTERNAL_DEST.evt_block_time')],
     unique_key = ['evt_block_time', 'evt_tx_hash', 'position_id', 'protocol_version']
     )
 }}
@@ -32,6 +33,8 @@ WITH
     ,'TradingV2_evt_LimitCancelled'
     ,'TradingV3_evt_LimitCancelled'
     ,'TradingV4_evt_LimitCancelled'
+    ,'TradingV5_evt_LimitCancelled'
+    ,'TradingV6_evt_LimitCancelled'
 ] %}
 
 limit_orders_v1_1 AS (
@@ -48,7 +51,7 @@ limit_orders_v1_1 AS (
             contract_address as project_contract_address
         FROM {{ source('tigristrade_polygon', limit_cancel_trading_evt) }} t
         {% if is_incremental() %}
-        WHERE t.evt_block_time >= date_trunc('day', now() - interval '7' day) 
+        WHERE 1 = 0 
         {% endif %}
         {% if not loop.last %}
         UNION ALL
@@ -71,7 +74,7 @@ limit_orders_v1_2 AS (
             t._trader as trader
         FROM {{ source('tigristrade_polygon', limit_cancel_trading_evt) }} t
         {% if is_incremental() %}
-        WHERE t.evt_block_time >= date_trunc('day', now() - interval '7' day) 
+        WHERE 1 = 0 
         {% endif %}
         {% if not loop.last %}
         UNION ALL
@@ -94,7 +97,7 @@ limit_orders_v2 AS (
             t.trader as trader
         FROM {{ source('tigristrade_v2_polygon', limit_cancel_trading_evt) }} t
         {% if is_incremental() %}
-        WHERE t.evt_block_time >= date_trunc('day', now() - interval '7' day) 
+        WHERE {{ incremental_predicate('t.evt_block_time') }}
         {% endif %}
         {% if not loop.last %}
         UNION ALL

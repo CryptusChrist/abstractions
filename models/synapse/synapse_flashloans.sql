@@ -1,7 +1,6 @@
 {{ config(
-    tags=['dunesql']
-      , partition_by = ['block_month']
-      , alias = alias('flashloans')
+     partition_by = ['block_month']
+      , alias = 'flashloans'
       , materialized = 'incremental'
       , file_format = 'delta'
       , incremental_strategy = 'merge'
@@ -29,8 +28,8 @@ FROM (
       SELECT blockchain
       , project
       , version
-      , block_month
       , block_time
+      , block_month
       , block_number
       , amount
       , amount_usd

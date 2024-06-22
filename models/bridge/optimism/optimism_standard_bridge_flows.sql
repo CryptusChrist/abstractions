@@ -1,6 +1,6 @@
 {{ config(
-    tags=['dunesql'],
-    alias = alias('standard_bridge_flows'),
+    
+    alias = 'standard_bridge_flows',
     partition_by = ['block_month'],
     materialized = 'incremental',
     file_format = 'delta',
@@ -137,7 +137,7 @@ LEFT JOIN {{ source('optimism', 'transactions') }} t
         AND t.block_time >= (NOW() - interval '14' Day)
         {% endif %}
         
-LEFT JOIN {{ ref('tokens_erc20') }} erc
+LEFT JOIN {{ source('tokens', 'erc20') }} erc
     ON erc.blockchain = 'optimism'
     AND erc.contract_address = tf.bridged_token_address
     
